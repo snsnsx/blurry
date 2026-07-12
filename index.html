@@ -1,247 +1,771 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blur Image Tool</title>
-    <style>
-        :root {
-            --bg-color: #1e1e24;
-            --card-color: #2a2a32;
-            --accent-color: #4f46e5;
-            --accent-hover: #6366f1;
-            --text-color: #f3f4f6;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Расфокус — оптический инструмент размытия изображений</title>
+<meta name="description" content="Размытие изображений в браузере: диафрагма управляет радиусом, ползунок сравнивает результат с оригиналом. Работает офлайн, без загрузки на сервер.">
+<style>
+  :root{
+    --bg: #14140f;
+    --panel: #1b1c16;
+    --panel-2: #232419;
+    --ink: #ece7d8;
+    --muted: #948e7c;
+    --brass: #c8933f;
+    --brass-dim: #6b4f22;
+    --focus: #6fb0a6;
+    --rust: #b1573f;
+    --font-sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+    --radius-max: 46;
+  }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-        }
+  *{ box-sizing: border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(200,147,63,.07), transparent 60%),
+      radial-gradient(900px 500px at 110% 10%, rgba(111,176,166,.05), transparent 55%),
+      var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    min-height:100%;
+  }
 
-        .container {
-            max-width: 800px;
-            width: 100%;
-            background: var(--card-color);
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
-            text-align: center;
-        }
+  a{ color: inherit; }
 
-        h1 {
-            margin-top: 0;
-            margin-bottom: 20px;
-            font-weight: 600;
-        }
+  ::selection{ background: var(--brass); color:#14140f; }
 
-        .upload-zone {
-            border: 2px dashed #4b5563;
-            padding: 40px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: border-color 0.3s;
-            margin-bottom: 20px;
-        }
+  :focus-visible{ outline: 2px solid var(--focus); outline-offset: 3px; }
 
-        .upload-zone:hover {
-            border-color: var(--accent-color);
-        }
+  .wrap{
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 40px 24px 64px;
+  }
 
-        input[type="file"] {
-            display: none;
-        }
+  header.top{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    margin-bottom: 34px;
+  }
+  .eyebrow{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--brass);
+  }
+  h1{
+    margin: 0;
+    font-size: clamp(28px, 4vw, 40px);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .lede{
+    color: var(--muted);
+    max-width: 60ch;
+    line-height: 1.5;
+    margin: 4px 0 0;
+    font-size: 14.5px;
+  }
 
-        .controls {
-            margin: 20px 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 15px;
-        }
+  main.stage-grid{
+    display:grid;
+    grid-template-columns: 1fr 300px;
+    gap: 22px;
+    align-items:start;
+  }
+  @media (max-width: 860px){
+    main.stage-grid{ grid-template-columns: 1fr; }
+  }
 
-        .control-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            width: 100%;
-            max-width: 400px;
-        }
+  /* ---------- stage ---------- */
+  .stage{
+    position:relative;
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 14px;
+    min-height: 420px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    padding: 18px;
+  }
 
-        .control-group label {
-            flex: 0 0 100px;
-            text-align: left;
-        }
+  .dropzone{
+    width:100%;
+    height: 100%;
+    min-height: 380px;
+    border: 1.5px dashed rgba(236,231,216,.18);
+    border-radius: 10px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap: 14px;
+    text-align:center;
+    padding: 32px;
+    transition: border-color .15s ease, background .15s ease;
+    cursor: pointer;
+  }
+  .dropzone.drag-over{
+    border-color: var(--brass);
+    background: rgba(200,147,63,.06);
+  }
+  .dropzone svg{ opacity:.55; }
+  .dropzone p{ margin:0; color: var(--muted); font-size: 14px; max-width: 32ch; line-height:1.5;}
+  .dropzone .hint{ font-family: var(--font-mono); font-size: 11px; letter-spacing:.04em; color: var(--muted); opacity:.7; }
+  .btn-pick{
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    letter-spacing:.03em;
+    background: var(--brass);
+    color: #14140f;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 7px;
+    cursor:pointer;
+    font-weight: 600;
+  }
+  .btn-pick:hover{ background:#dba64a; }
 
-        input[type="range"] {
-            flex: 1;
-            accent-color: var(--accent-color);
-        }
+  .compare{
+    position:relative;
+    width:100%;
+    max-height: 70vh;
+    display:none;
+    border-radius: 8px;
+    overflow:hidden;
+    touch-action: none;
+    cursor: ew-resize;
+  }
+  .compare.active{ display:block; }
+  .layer{ position:absolute; inset:0; display:flex; }
+  .layer canvas{ width:100%; height:100%; display:block; }
+  .layer-original{ clip-path: inset(0 50% 0 0); will-change: clip-path; }
 
-        .preview-container {
-            margin-top: 20px;
-            max-height: 450px;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border-radius: 8px;
-            background: #111827;
-        }
+  .tag{
+    position:absolute;
+    top:10px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: rgba(20,20,15,.6);
+    backdrop-filter: blur(4px);
+    color: var(--ink);
+    pointer-events:none;
+  }
+  .tag.left{ left:10px; }
+  .tag.right{ right:10px; }
 
-        canvas {
-            max-width: 100%;
-            max-height: 450px;
-            object-fit: contain;
-            display: none;
-        }
+  .handle{
+    position:absolute;
+    top:0; bottom:0;
+    left:50%;
+    width: 0;
+    transform: translateX(-50%);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .handle-line{
+    position:absolute;
+    top:0; bottom:0;
+    width: 2px;
+    background: var(--ink);
+    opacity:.85;
+    box-shadow: 0 0 6px rgba(0,0,0,.5);
+  }
+  .handle-grip{
+    position:relative;
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: #14140f;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.5);
+  }
 
-        .btn {
-            background-color: var(--accent-color);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            font-size: 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background 0.2s;
-            text-decoration: none;
-            display: inline-block;
-            margin-top: 15px;
-        }
+  /* ---------- panel ---------- */
+  .panel{
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 14px;
+    padding: 22px;
+    display:flex;
+    flex-direction:column;
+    gap: 22px;
+  }
+  .panel h2{
+    font-size: 11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color: var(--muted);
+    margin:0;
+    font-weight:600;
+  }
 
-        .btn:hover {
-            background-color: var(--accent-hover);
-        }
+  .dial-block{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap: 14px;
+  }
 
-        .btn:disabled {
-            background-color: #4b5563;
-            cursor: not-allowed;
-        }
-    </style>
+  .dial{
+    --open: 0px;
+    width: 148px;
+    height: 148px;
+    position: relative;
+    border-radius: 50%;
+    background: var(--panel-2);
+    box-shadow:
+      inset 0 0 0 1px rgba(255,255,255,.06),
+      0 10px 26px rgba(0,0,0,.45);
+    cursor: grab;
+    touch-action: none;
+  }
+  .dial:active{ cursor: grabbing; }
+  .dial-ring{
+    position:absolute; inset: 5px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.08);
+    pointer-events:none;
+  }
+  .dial-blades{
+    position:absolute; inset: 13px;
+    border-radius:50%;
+    overflow:hidden;
+    background: radial-gradient(circle, var(--brass-dim) 0%, var(--panel-2) 72%);
+  }
+  .blade{
+    position:absolute; inset:0;
+    background: var(--panel-2);
+    clip-path: polygon(50% 50%, 27.04% -5.43%, 72.96% -5.43%);
+    transform-origin: 50% 50%;
+    transform: rotate(calc(var(--i) * 45deg)) translateY(calc(-1 * var(--open)));
+  }
+  @media (prefers-reduced-motion: no-preference){
+    .blade{ transition: transform .06s linear; }
+  }
+  .dial-hub{
+    position:absolute; inset: 42%;
+    border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #e2b767, var(--brass) 60%, var(--brass-dim));
+    box-shadow: 0 0 14px rgba(200,147,63,.45);
+    pointer-events:none;
+  }
+  .dial-pointer{
+    position:absolute;
+    left:50%; top:2px;
+    width:2px; height:16px;
+    background: var(--focus);
+    transform-origin: 50% 72px;
+    transform: translateX(-50%) rotate(var(--angle, -135deg));
+    pointer-events:none;
+    border-radius: 2px;
+  }
+
+  .readout{
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    display:flex;
+    align-items:baseline;
+    gap: 6px;
+  }
+  .readout b{
+    font-size: 22px;
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .field{ display:flex; flex-direction:column; gap:8px; }
+  .field label{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing:.06em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  input[type="range"]{
+    -webkit-appearance:none;
+    appearance:none;
+    width:100%;
+    height: 3px;
+    background: rgba(255,255,255,.12);
+    border-radius: 3px;
+    outline-offset: 6px;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:14px; height:14px;
+    border-radius:50%;
+    background: var(--brass);
+    cursor:pointer;
+    margin-top:0;
+  }
+  input[type="range"]::-moz-range-thumb{
+    width:14px; height:14px;
+    border:none;
+    border-radius:50%;
+    background: var(--brass);
+    cursor:pointer;
+  }
+
+  .actions{ display:flex; flex-direction:column; gap:10px; margin-top: 4px; }
+  .btn{
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    letter-spacing:.03em;
+    padding: 11px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.1);
+    background: var(--panel-2);
+    color: var(--ink);
+    cursor:pointer;
+    text-align:center;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+  }
+  .btn:hover{ border-color: rgba(255,255,255,.25); }
+  .btn.primary{
+    background: var(--brass);
+    color:#14140f;
+    border-color: transparent;
+    font-weight:600;
+  }
+  .btn.primary:hover{ background:#dba64a; }
+  .btn.ghost{ color: var(--muted); }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; }
+
+  .meta{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    display:flex;
+    justify-content:space-between;
+    border-top: 1px solid rgba(255,255,255,.06);
+    padding-top: 14px;
+  }
+
+  footer{
+    margin-top: 30px;
+    color: var(--muted);
+    font-size: 12.5px;
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  footer a{ color: var(--focus); text-decoration:none; }
+  footer a:hover{ text-decoration:underline; }
+
+  .visually-hidden{
+    position:absolute; width:1px; height:1px; overflow:hidden;
+    clip: rect(0 0 0 0); white-space:nowrap; border:0; padding:0; margin:-1px;
+  }
+</style>
 </head>
 <body>
 
-<div class="container">
-    <h1>Размытие изображений</h1>
-    
-    <div class="upload-zone" id="drop-zone">
-        <p>Перетащите изображение сюда или кликните для выбора</p>
-        <input type="file" id="file-input" accept="image/*">
-    </div>
+<div class="wrap">
 
-    <div class="controls">
-        <div class="control-group">
-            <label for="blur-slider">Размытие:</label>
-            <input type="range" id="blur-slider" min="0" max="50" value="10" disabled>
-            <span id="blur-value">10px</span>
+  <header class="top">
+    <span class="eyebrow">Оптический инструмент · работает локально</span>
+    <h1>Расфокус</h1>
+    <p class="lede">Диафрагма справа задаёт радиус размытия — как раскрытие объектива меняет глубину резкости. Перетащите разделитель на изображении, чтобы сравнить с оригиналом.</p>
+  </header>
+
+  <main class="stage-grid">
+
+    <section class="stage" id="stage">
+      <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Загрузить изображение">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+          <circle cx="12" cy="13" r="6.2"></circle>
+          <circle cx="12" cy="13" r="2.4"></circle>
+          <path d="M9 5.5h1.4l1-1.4h1.2l1 1.4H15a2 2 0 0 1 2 2V6"></path>
+        </svg>
+        <p>Перетащите изображение сюда, вставьте из буфера обмена (Ctrl+V) или выберите файл</p>
+        <button type="button" class="btn-pick" id="pickBtn">Выбрать файл</button>
+        <span class="hint">JPG · PNG · WEBP</span>
+      </div>
+
+      <div class="compare" id="compare">
+        <div class="layer layer-blur"><canvas id="canvasBlur"></canvas></div>
+        <div class="layer layer-original" id="layerOriginal"><canvas id="canvasOriginal"></canvas></div>
+        <span class="tag left">оригинал</span>
+        <span class="tag right">результат</span>
+        <div class="handle" id="handle" role="slider" tabindex="0"
+             aria-label="Сравнение оригинала и результата"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+          <span class="handle-line"></span>
+          <span class="handle-grip">⇔</span>
         </div>
-        <button id="download-btn" class="btn" disabled>Скачать результат</button>
-    </div>
+      </div>
 
-    <div class="preview-container">
-        <canvas id="canvas"></canvas>
-    </div>
+      <input type="file" id="fileInput" accept="image/*" class="visually-hidden">
+    </section>
+
+    <aside class="panel">
+      <div class="dial-block">
+        <h2>Радиус размытия</h2>
+        <div class="dial" id="dial" role="slider" tabindex="0"
+             aria-label="Радиус размытия"
+             aria-valuemin="0" aria-valuemax="46" aria-valuenow="0">
+          <div class="dial-blades" id="dialBlades">
+            <span class="blade" style="--i:0"></span>
+            <span class="blade" style="--i:1"></span>
+            <span class="blade" style="--i:2"></span>
+            <span class="blade" style="--i:3"></span>
+            <span class="blade" style="--i:4"></span>
+            <span class="blade" style="--i:5"></span>
+            <span class="blade" style="--i:6"></span>
+            <span class="blade" style="--i:7"></span>
+          </div>
+          <div class="dial-ring"></div>
+          <div class="dial-pointer" id="dialPointer"></div>
+          <div class="dial-hub"></div>
+        </div>
+        <div class="readout"><b id="radiusValue">0</b><span>px · перетащите или ⭤ клавишами</span></div>
+      </div>
+
+      <div class="field">
+        <label for="rangeInput">Точная настройка</label>
+        <input type="range" id="rangeInput" min="0" max="46" step="1" value="0">
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="downloadBtn" disabled>Сохранить PNG</button>
+        <button class="btn ghost" id="resetBtn" disabled>Загрузить другое изображение</button>
+      </div>
+
+      <div class="meta">
+        <span id="dimsMeta">— × —</span>
+        <span id="sizeMeta">—</span>
+      </div>
+    </aside>
+
+  </main>
+
+  <footer>
+    <span>Обработка происходит в браузере — файл никуда не отправляется.</span>
+    <span>Без зависимостей · HTML/CSS/JS</span>
+  </footer>
+
 </div>
 
 <script>
-    const dropZone = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('file-input');
-    const blurSlider = document.getElementById('blur-slider');
-    const blurValue = document.getElementById('blur-value');
-    const downloadBtn = document.getElementById('download-btn');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
+(function(){
+  "use strict";
 
-    let originalImage = null;
+  var RADIUS_MAX = 46;
+  var ANGLE_MIN = -135, ANGLE_MAX = 135;
 
-    // Клик по зоне загрузки trigger'ит скрытый input
-    dropZone.addEventListener('click', () => fileInput.click());
+  var stage = document.getElementById('stage');
+  var dropzone = document.getElementById('dropzone');
+  var pickBtn = document.getElementById('pickBtn');
+  var fileInput = document.getElementById('fileInput');
 
-    // Drag and Drop
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = 'var(--accent-color)';
+  var compare = document.getElementById('compare');
+  var canvasBlur = document.getElementById('canvasBlur');
+  var canvasOriginal = document.getElementById('canvasOriginal');
+  var ctxBlur = canvasBlur.getContext('2d');
+  var ctxOrig = canvasOriginal.getContext('2d');
+  var layerOriginal = document.getElementById('layerOriginal');
+  var handle = document.getElementById('handle');
+
+  var dial = document.getElementById('dial');
+  var dialPointer = document.getElementById('dialPointer');
+  var radiusValueEl = document.getElementById('radiusValue');
+  var rangeInput = document.getElementById('rangeInput');
+
+  var downloadBtn = document.getElementById('downloadBtn');
+  var resetBtn = document.getElementById('resetBtn');
+  var dimsMeta = document.getElementById('dimsMeta');
+  var sizeMeta = document.getElementById('sizeMeta');
+
+  var img = null;
+  var displayW = 0, displayH = 0;
+  var naturalW = 0, naturalH = 0;
+  var radius = 0;
+  var sourceFileName = 'image';
+
+  // ---------- file loading ----------
+
+  function openPicker(){ fileInput.click(); }
+  pickBtn.addEventListener('click', openPicker);
+  dropzone.addEventListener('click', openPicker);
+  dropzone.addEventListener('keydown', function(e){
+    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openPicker(); }
+  });
+
+  fileInput.addEventListener('change', function(e){
+    if(e.target.files && e.target.files[0]) loadFile(e.target.files[0]);
+  });
+
+  ['dragenter','dragover'].forEach(function(evt){
+    dropzone.addEventListener(evt, function(e){
+      e.preventDefault(); e.stopPropagation();
+      dropzone.classList.add('drag-over');
     });
-
-    dropZone.addEventListener('dragleave', () => {
-        dropZone.style.borderColor = '#4b5563';
+  });
+  ['dragleave','drop'].forEach(function(evt){
+    dropzone.addEventListener(evt, function(e){
+      e.preventDefault(); e.stopPropagation();
+      dropzone.classList.remove('drag-over');
     });
+  });
+  dropzone.addEventListener('drop', function(e){
+    var files = e.dataTransfer && e.dataTransfer.files;
+    if(files && files[0]) loadFile(files[0]);
+  });
 
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = '#4b5563';
-        if (e.dataTransfer.files.length > 0) {
-            loadImage(e.dataTransfer.files[0]);
-        }
-    });
-
-    // Изменение файла через проводник
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            loadImage(e.target.files[0]);
-        }
-    });
-
-    // Обработка ползунка
-    blurSlider.addEventListener('input', (e) => {
-        const value = e.target.value;
-        blurValue.textContent = `${value}px`;
-        if (originalImage) {
-            applyBlur(value);
-        }
-    });
-
-    // Скачивание
-    downloadBtn.addEventListener('click', () => {
-        const link = document.createElement('a');
-        link.download = 'blurred-image.png';
-        link.href = canvas.toDataURL();
-        link.click();
-    });
-
-    // Функция загрузки изображения в память
-    function loadImage(file) {
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            originalImage = new Image();
-            originalImage.onload = function() {
-                // Устанавливаем реальные размеры картинки для холста
-                canvas.width = originalImage.width;
-                canvas.height = originalImage.height;
-                canvas.style.display = 'block';
-                
-                // Активируем интерфейс
-                blurSlider.disabled = false;
-                downloadBtn.disabled = false;
-                
-                // Рендерим с текущим значением размытия
-                applyBlur(blurSlider.value);
-            }
-            originalImage.src = event.target.result;
-        }
-        reader.readAsDataURL(file);
+  document.addEventListener('paste', function(e){
+    var items = e.clipboardData && e.clipboardData.items;
+    if(!items) return;
+    for(var i=0;i<items.length;i++){
+      if(items[i].type && items[i].type.indexOf('image') === 0){
+        var file = items[i].getAsFile();
+        if(file) loadFile(file);
+        break;
+      }
     }
+  });
 
-    // Рендер размытия через Canvas API
-    function applyBlur(radius) {
-        if (!originalImage) return;
+  function loadFile(file){
+    if(!file.type || file.type.indexOf('image') !== 0) return;
+    sourceFileName = (file.name || 'image').replace(/\.[^.]+$/, '');
+    var url = URL.createObjectURL(file);
+    var image = new Image();
+    image.onload = function(){
+      img = image;
+      naturalW = image.naturalWidth;
+      naturalH = image.naturalHeight;
+      URL.revokeObjectURL(url);
+      dropzone.style.display = 'none';
+      compare.classList.add('active');
+      downloadBtn.disabled = false;
+      resetBtn.disabled = false;
+      dimsMeta.textContent = naturalW + ' × ' + naturalH + ' px';
+      sizeMeta.textContent = formatBytes(file.size);
+      layout();
+      setRadius(Math.min(10, RADIUS_MAX));
+    };
+    image.onerror = function(){
+      URL.revokeObjectURL(url);
+      alert('Не удалось загрузить изображение. Попробуйте другой файл.');
+    };
+    image.src = url;
+  }
 
-        // Очищаем холст
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Включаем встроенный фильтр размытия Canvas
-        ctx.filter = `blur(${radius}px)`;
-        
-        // Рисуем изображение с запасом, чтобы не было белых краев при сильном размытии
-        ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
-    }
+  function formatBytes(b){
+    if(b < 1024) return b + ' Б';
+    if(b < 1024*1024) return (b/1024).toFixed(0) + ' КБ';
+    return (b/1024/1024).toFixed(1) + ' МБ';
+  }
+
+  function resetTool(){
+    img = null;
+    compare.classList.remove('active');
+    dropzone.style.display = 'flex';
+    downloadBtn.disabled = true;
+    resetBtn.disabled = true;
+    fileInput.value = '';
+    dimsMeta.textContent = '— × —';
+    sizeMeta.textContent = '—';
+    setRadius(0);
+  }
+  resetBtn.addEventListener('click', resetTool);
+
+  // ---------- layout / drawing ----------
+
+  function layout(){
+    if(!img) return;
+    var box = stage.getBoundingClientRect();
+    var maxW = Math.max(box.width - 36, 240);
+    var maxH = Math.min(window.innerHeight * 0.62, 640);
+    var ratio = Math.min(maxW / naturalW, maxH / naturalH, 1);
+    displayW = Math.round(naturalW * ratio);
+    displayH = Math.round(naturalH * ratio);
+
+    [canvasBlur, canvasOriginal].forEach(function(c){
+      c.width = displayW;
+      c.height = displayH;
+    });
+    compare.style.width = displayW + 'px';
+    compare.style.height = displayH + 'px';
+
+    ctxOrig.clearRect(0,0,displayW,displayH);
+    ctxOrig.drawImage(img, 0, 0, displayW, displayH);
+    drawBlurred();
+  }
+
+  function drawBlurred(){
+    if(!img) return;
+    ctxBlur.clearRect(0,0,displayW,displayH);
+    ctxBlur.filter = radius > 0 ? 'blur(' + radius + 'px)' : 'none';
+    ctxBlur.drawImage(img, 0, 0, displayW, displayH);
+    ctxBlur.filter = 'none';
+  }
+
+  window.addEventListener('resize', debounce(layout, 150));
+
+  function debounce(fn, ms){
+    var t;
+    return function(){
+      clearTimeout(t);
+      var args = arguments;
+      t = setTimeout(function(){ fn.apply(null, args); }, ms);
+    };
+  }
+
+  // ---------- radius / dial ----------
+
+  function setRadius(r, opts){
+    radius = Math.max(0, Math.min(RADIUS_MAX, Math.round(r)));
+    var pct = radius / RADIUS_MAX;
+    var angle = ANGLE_MIN + pct * (ANGLE_MAX - ANGLE_MIN);
+    dial.style.setProperty('--angle', angle + 'deg');
+    dial.style.setProperty('--open', (pct * 62) + 'px');
+    dial.setAttribute('aria-valuenow', String(radius));
+    radiusValueEl.textContent = String(radius);
+    if(!opts || !opts.skipRange) rangeInput.value = String(radius);
+    drawBlurred();
+  }
+
+  rangeInput.addEventListener('input', function(){
+    setRadius(parseInt(rangeInput.value, 10), { skipRange: true });
+  });
+
+  function angleFromPointer(clientX, clientY){
+    var rect = dial.getBoundingClientRect();
+    var cx = rect.left + rect.width/2;
+    var cy = rect.top + rect.height/2;
+    var dx = clientX - cx, dy = clientY - cy;
+    var deg = Math.atan2(dy, dx) * 180 / Math.PI + 90; // 0deg = 12 o'clock, clockwise
+    if(deg > 180) deg -= 360;
+    if(deg < -180) deg += 360;
+    return deg;
+  }
+
+  function radiusFromAngle(deg){
+    var clamped = Math.max(ANGLE_MIN, Math.min(ANGLE_MAX, deg));
+    var pct = (clamped - ANGLE_MIN) / (ANGLE_MAX - ANGLE_MIN);
+    return pct * RADIUS_MAX;
+  }
+
+  var draggingDial = false;
+  dial.addEventListener('pointerdown', function(e){
+    draggingDial = true;
+    dial.setPointerCapture(e.pointerId);
+    handleDialPointer(e);
+  });
+  dial.addEventListener('pointermove', function(e){
+    if(draggingDial) handleDialPointer(e);
+  });
+  dial.addEventListener('pointerup', function(e){
+    draggingDial = false;
+    try{ dial.releasePointerCapture(e.pointerId); }catch(err){}
+  });
+  function handleDialPointer(e){
+    var deg = angleFromPointer(e.clientX, e.clientY);
+    setRadius(radiusFromAngle(deg));
+  }
+
+  dial.addEventListener('wheel', function(e){
+    e.preventDefault();
+    setRadius(radius + (e.deltaY > 0 ? -1 : 1));
+  }, { passive:false });
+
+  dial.addEventListener('keydown', function(e){
+    var step = 1;
+    if(e.key === 'ArrowRight' || e.key === 'ArrowUp'){ e.preventDefault(); setRadius(radius + step); }
+    else if(e.key === 'ArrowLeft' || e.key === 'ArrowDown'){ e.preventDefault(); setRadius(radius - step); }
+    else if(e.key === 'PageUp'){ e.preventDefault(); setRadius(radius + 10); }
+    else if(e.key === 'PageDown'){ e.preventDefault(); setRadius(radius - 10); }
+    else if(e.key === 'Home'){ e.preventDefault(); setRadius(0); }
+    else if(e.key === 'End'){ e.preventDefault(); setRadius(RADIUS_MAX); }
+  });
+
+  // ---------- compare handle ----------
+
+  function setComparePct(pct){
+    pct = Math.max(0, Math.min(100, pct));
+    layerOriginal.style.clipPath = 'inset(0 ' + (100 - pct) + '% 0 0)';
+    handle.style.left = pct + '%';
+    handle.setAttribute('aria-valuenow', String(Math.round(pct)));
+  }
+
+  var draggingHandle = false;
+  function pctFromClientX(clientX){
+    var rect = compare.getBoundingClientRect();
+    return ((clientX - rect.left) / rect.width) * 100;
+  }
+
+  compare.addEventListener('pointerdown', function(e){
+    draggingHandle = true;
+    compare.setPointerCapture(e.pointerId);
+    setComparePct(pctFromClientX(e.clientX));
+  });
+  compare.addEventListener('pointermove', function(e){
+    if(draggingHandle) setComparePct(pctFromClientX(e.clientX));
+  });
+  compare.addEventListener('pointerup', function(e){
+    draggingHandle = false;
+    try{ compare.releasePointerCapture(e.pointerId); }catch(err){}
+  });
+
+  handle.addEventListener('keydown', function(e){
+    var cur = parseFloat(handle.style.left) || 50;
+    if(e.key === 'ArrowRight'){ e.preventDefault(); setComparePct(cur + 5); }
+    else if(e.key === 'ArrowLeft'){ e.preventDefault(); setComparePct(cur - 5); }
+    else if(e.key === 'Home'){ e.preventDefault(); setComparePct(0); }
+    else if(e.key === 'End'){ e.preventDefault(); setComparePct(100); }
+  });
+
+  // ---------- download (full resolution) ----------
+
+  downloadBtn.addEventListener('click', function(){
+    if(!img) return;
+    var out = document.createElement('canvas');
+    out.width = naturalW;
+    out.height = naturalH;
+    var octx = out.getContext('2d');
+    octx.filter = radius > 0 ? 'blur(' + radius + 'px)' : 'none';
+    octx.drawImage(img, 0, 0, naturalW, naturalH);
+    octx.filter = 'none';
+    out.toBlob(function(blob){
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = sourceFileName + '-defocus-' + radius + 'px.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(a.href); }, 2000);
+    }, 'image/png');
+  });
+
+  // init
+  setRadius(0);
+  setComparePct(50);
+})();
 </script>
+
 </body>
 </html>

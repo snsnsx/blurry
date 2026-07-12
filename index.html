@@ -427,7 +427,7 @@
         <h2>Радиус размытия</h2>
         <div class="dial" id="dial" role="slider" tabindex="0"
              aria-label="Радиус размытия"
-             aria-valuemin="0" aria-valuemax="46" aria-valuenow="0">
+             aria-valuemin="0" aria-valuemax="90" aria-valuenow="0">
           <div class="dial-blades" id="dialBlades">
             <span class="blade" style="--i:0"></span>
             <span class="blade" style="--i:1"></span>
@@ -447,7 +447,7 @@
 
       <div class="field">
         <label for="rangeInput">Точная настройка</label>
-        <input type="range" id="rangeInput" min="0" max="46" step="1" value="0">
+        <input type="range" id="rangeInput" min="0" max="90" step="1" value="0">
       </div>
 
       <div class="actions">
@@ -474,7 +474,7 @@
 (function(){
   "use strict";
 
-  var RADIUS_MAX = 46;
+  var RADIUS_MAX = 90;
   var ANGLE_MIN = -135, ANGLE_MAX = 135;
 
   var stage = document.getElementById('stage');
@@ -758,7 +758,9 @@
     out.width = naturalW;
     out.height = naturalH;
     var octx = out.getContext('2d');
-    octx.filter = radius > 0 ? 'blur(' + radius + 'px)' : 'none';
+    var scaleFactor = naturalW / displayW;
+    var exportRadius = radius * scaleFactor;
+    octx.filter = exportRadius > 0 ? 'blur(' + exportRadius + 'px)' : 'none';
     octx.drawImage(img, 0, 0, naturalW, naturalH);
     octx.filter = 'none';
     out.toBlob(function(blob){

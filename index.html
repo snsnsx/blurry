@@ -509,8 +509,14 @@
   // ---------- file loading ----------
 
   function openPicker(){ fileInput.click(); }
-  pickBtn.addEventListener('click', openPicker);
-  dropzone.addEventListener('click', openPicker);
+  pickBtn.addEventListener('click', function(e){
+    e.stopPropagation();
+    openPicker();
+  });
+  dropzone.addEventListener('click', function(e){
+    if(e.target === pickBtn) return;
+    openPicker();
+  });
   dropzone.addEventListener('keydown', function(e){
     if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openPicker(); }
   });
@@ -549,7 +555,12 @@
   });
 
   function loadFile(file){
-    if(!file.type || file.type.indexOf('image') !== 0) return;
+    var looksLikeImage = (file.type && file.type.indexOf('image') === 0) ||
+      /\.(jpe?g|png|webp|gif|bmp|svg)$/i.test(file.name || '');
+    if(!looksLikeImage){
+      alert('Это не похоже на изображение. Поддерживаются JPG, PNG, WEBP, GIF, BMP.');
+      return;
+    }
     sourceFileName = (file.name || 'image').replace(/\.[^.]+$/, '');
     var url = URL.createObjectURL(file);
     var image = new Image();

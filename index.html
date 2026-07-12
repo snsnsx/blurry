@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blur Image Tool</title>
+    <style>
+        :root {
+            --bg-color: #1e1e24;
+            --card-color: #2a2a32;
+            --accent-color: #4f46e5;
+            --accent-hover: #6366f1;
+            --text-color: #f3f4f6;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: var(--card-color);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        h1 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .upload-zone {
+            border: 2px dashed #4b5563;
+            padding: 40px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: border-color 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--accent-color);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .control-group label {
+            flex: 0 0 100px;
+            text-align: left;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            accent-color: var(--accent-color);
+        }
+
+        .preview-container {
+            margin-top: 20px;
+            max-height: 450px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 8px;
+            background: #111827;
+        }
+
+        canvas {
+            max-width: 100%;
+            max-height: 450px;
+            object-fit: contain;
+            display: none;
+        }
+
+        .btn {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 15px;
+        }
+
+        .btn:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .btn:disabled {
+            background-color: #4b5563;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Размытие изображений</h1>
+    
+    <div class="upload-zone" id="drop-zone">
+        <p>Перетащите изображение сюда или кликните для выбора</p>
+        <input type="file" id="file-input" accept="image/*">
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="blur-slider">Размытие:</label>
+            <input type="range" id="blur-slider" min="0" max="50" value="10" disabled>
+            <span id="blur-value">10px</span>
+        </div>
+        <button id="download-btn" class="btn" disabled>Скачать результат</button>
+    </div>
+
+    <div class="preview-container">
+        <canvas id="canvas"></canvas>
+    </div>
+</div>
+
+<script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const blurSlider = document.getElementById('blur-slider');
+    const blurValue = document.getElementById('blur-value');
+    const downloadBtn = document.getElementById('download-btn');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    let originalImage = null;
+
+    // Клик по зоне загрузки trigger'ит скрытый input
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    // Drag and Drop
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = 'var(--accent-color)';
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.style.borderColor = '#4b5563';
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#4b5563';
+        if (e.dataTransfer.files.length > 0) {
+            loadImage(e.dataTransfer.files[0]);
+        }
+    });
+
+    // Изменение файла через проводник
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            loadImage(e.target.files[0]);
+        }
+    });
+
+    // Обработка ползунка
+    blurSlider.addEventListener('input', (e) => {
+        const value = e.target.value;
+        blurValue.textContent = `${value}px`;
+        if (originalImage) {
+            applyBlur(value);
+        }
+    });
+
+    // Скачивание
+    downloadBtn.addEventListener('click', () => {
+        const link = document.createElement('a');
+        link.download = 'blurred-image.png';
+        link.href = canvas.toDataURL();
+        link.click();
+    });
+
+    // Функция загрузки изображения в память
+    function loadImage(file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            originalImage = new Image();
+            originalImage.onload = function() {
+                // Устанавливаем реальные размеры картинки для холста
+                canvas.width = originalImage.width;
+                canvas.height = originalImage.height;
+                canvas.style.display = 'block';
+                
+                // Активируем интерфейс
+                blurSlider.disabled = false;
+                downloadBtn.disabled = false;
+                
+                // Рендерим с текущим значением размытия
+                applyBlur(blurSlider.value);
+            }
+            originalImage.src = event.target.result;
+        }
+        reader.readAsDataURL(file);
+    }
+
+    // Рендер размытия через Canvas API
+    function applyBlur(radius) {
+        if (!originalImage) return;
+
+        // Очищаем холст
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Включаем встроенный фильтр размытия Canvas
+        ctx.filter = `blur(${radius}px)`;
+        
+        // Рисуем изображение с запасом, чтобы не было белых краев при сильном размытии
+        ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
+    }
+</script>
+</body>
+</html>
